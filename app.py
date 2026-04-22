@@ -1121,7 +1121,7 @@ with col1:
     if show_2d:
         img_a = smiles_to_image(smiles_a)
         if img_a:
-            st.image(img_a, caption="2D Structure A", use_column_width=True)
+            st.image(img_a, caption="2D Structure A", use_container_width=True)
 
 with col2:
     st.subheader("🔴 Molecule B")
@@ -1134,7 +1134,7 @@ with col2:
     if show_2d:
         img_b = smiles_to_image(smiles_b)
         if img_b:
-            st.image(img_b, caption="2D Structure B", use_column_width=True)
+            st.image(img_b, caption="2D Structure B", use_container_width=True)
 
 # Optimization and Calculation
 if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True):
