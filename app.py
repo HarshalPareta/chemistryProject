@@ -484,15 +484,14 @@ def analyze_structural_factors(mol):
 def compare_structural_factors(props_a, props_b):
     """
     Compare structural factors following the 6-step organic chemistry framework.
-    This is HIERARCHICAL - Step 1 is the TRUMP CARD that overrides all other steps.
-    If Step 1 has a winner, that's the final answer. Otherwise, check Step 2, etc.
+    Steps are evaluated in order until a decisive difference is found.
     """
     if props_a is None or props_b is None:
         return None
 
     results = {
         "step1_aromaticity": {
-            "title": "Step 1: Aromaticity (TRUMP CARD)",
+            "title": "Aromaticity",
             "comparisons": [],
             "winner": None,
             "stability_advantage": None,
@@ -529,7 +528,7 @@ def compare_structural_factors(props_a, props_b):
         },
     }
 
-    # Step 1: Aromaticity (TRUMP CARD - wins over all other factors)
+     # Step 1: Aromaticity
     # Positive: aromatic (stable), Negative: antiaromatic (unstable)
     aromatic_a = props_a["aromatic_rings"]
     aromatic_b = props_b["aromatic_rings"]
@@ -574,10 +573,10 @@ def compare_structural_factors(props_a, props_b):
             f"Molecule {winner} has aromatic advantage"
         )
 
-        # TRUMP CARD - this wins regardless of other factors
+         # This determines the winner if there's a difference
         results["final_winner"] = winner
         results["conclusion"] = (
-            f"Aromaticity (TRUMP CARD): Molecule {winner} wins due to aromatic stabilization"
+             f"Aromaticity: Molecule {winner} wins due to aromatic stabilization"
         )
         results["winning_step"] = 1
         return results
@@ -1166,10 +1165,20 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
             if mol_a is not None and mol_b is not None:
                 st.success("✅ Optimization complete!")
 
-                # Energy comparison
-                delta_e = energy_b - energy_a
-                more_stable = "A" if energy_a < energy_b else "B"
-                stability_diff = abs(delta_e)
+                 # Energy comparison (normalize by number of atoms for fair comparison)
+                if mol_a is not None and mol_b is not None:
+                    num_atoms_a = mol_a.GetNumAtoms()
+                    num_atoms_b = mol_b.GetNumAtoms()
+                    energy_per_atom_a = energy_a / num_atoms_a if num_atoms_a > 0 else float('inf')
+                    energy_per_atom_b = energy_b / num_atoms_b if num_atoms_b > 0 else float('inf')
+                    delta_e = energy_per_atom_b - energy_per_atom_a
+                    more_stable = "A" if energy_per_atom_a < energy_per_atom_b else "B"
+                    stability_diff = abs(delta_e)
+                else:
+                    # Fallback to original comparison if molecules aren't available
+                    delta_e = energy_b - energy_a
+                    more_stable = "A" if energy_a < energy_b else "B"
+                    stability_diff = abs(delta_e)
 
                 # Boltzmann equilibrium constant
                 boltzmann_k = math.exp(-delta_e / (R * TEMP))
@@ -1190,31 +1199,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                         delta=f"{delta_e:.2f}" if delta_e != 0 else "0",
                     )
 
-                # Verdict
-                st.markdown("---")
-                verdict_col1, verdict_col2 = st.columns([1, 2])
-                with verdict_col1:
-                    if more_stable == "A":
-                        st.info("🏆 Molecule A is more stable!")
-                    else:
-                        st.info("🏆 Molecule B is more stable!")
-                with verdict_col2:
-                    st.markdown(f"""
-                    **Verdict:** Molecule **{more_stable}** is more stable by **{stability_diff:.2f} kcal/mol**.
-                    """)
 
-                # Boltzmann distribution
-                st.markdown("---")
-                st.subheader("🔥 Thermodynamic Equilibrium")
-                st.markdown(rf"""
-                At **{TEMP:.0f} K** (room temperature):
-
-                - **Equilibrium constant:** $K = e^{{-\Delta E / RT}}$ = **{boltzmann_k:.4e}**
-                - **Interpretation:**
-                    - If $K > 1$: Molecule A favored (A more stable)
-                    - If $K < 1$: Molecule B favored (B more stable)
-                    - Current $K$ = **{boltzmann_k:.4e}** → **{"A" if boltzmann_k > 1 else "B"}** dominates
-                """)
 
                 # Structural factor analysis - 6-Step Framework
                 st.markdown("---")
@@ -1230,7 +1215,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                 if structural_results:
                     # Step 1: Aromaticity
                     step1 = structural_results["step1_aromaticity"]
-                    with st.expander(f"🃏 {step1['title']}", expanded=True):
+                    with st.expander(f"🃏 Step 1: {step1['title']}", expanded=True):
                         if step1["comparisons"]:
                             for comp in step1["comparisons"]:
                                 winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
@@ -1245,7 +1230,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
 
                     # Step 2: Carbon Framework
                     step2 = structural_results["step2_carbon_framework"]
-                    with st.expander(f"🔗 {step2['title']}", expanded=False):
+                    with st.expander(f"🔗 Step 2: {step2['title']}", expanded=False):
                         if step2["comparisons"]:
                             for comp in step2["comparisons"]:
                                 winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
@@ -1258,7 +1243,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
 
                     # Step 3: Ring Strain
                     step3 = structural_results["step3_ring_strain"]
-                    with st.expander(f"💫 {step3['title']}", expanded=False):
+                    with st.expander(f"💫 Step 3: {step3['title']}", expanded=False):
                         if step3["comparisons"]:
                             for comp in step3["comparisons"]:
                                 winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
@@ -1271,7 +1256,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
 
                     # Step 4: Resonance
                     step4 = structural_results["step4_resonance"]
-                    with st.expander(f"🌊 {step4['title']}", expanded=False):
+                    with st.expander(f"🌊 Step 4: {step4['title']}", expanded=False):
                         if step4["comparisons"]:
                             for comp in step4["comparisons"]:
                                 winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
@@ -1284,7 +1269,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
 
                     # Step 5: Steric Hindrance
                     step5 = structural_results["step5_steric"]
-                    with st.expander(f"⚡ {step5['title']}", expanded=False):
+                    with st.expander(f"⚡ Step 5: {step5['title']}", expanded=False):
                         if step5["comparisons"]:
                             for comp in step5["comparisons"]:
                                 winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
@@ -1297,7 +1282,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
 
                     # Step 6: Inductive Effects
                     step6 = structural_results["step6_inductive"]
-                    with st.expander(f"🧲 {step6['title']}", expanded=False):
+                    with st.expander(f"🧲 Step 6: {step6['title']}", expanded=False):
                         if step6["comparisons"]:
                             for comp in step6["comparisons"]:
                                 winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
@@ -1310,16 +1295,13 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                                 "No significant inductive/electronegativity differences found."
                             )
 
-                    # Multi-Category Stability Comparison
+                     # Multi-Category Stability Comparison
                     st.markdown("---")
                     st.subheader("📊 Multi-Category Stability Comparison")
-
                     # Calculate comparisons for each category
-
                     # 1. Thermodynamic Stability (MMFF94 Energy)
                     therm_winner = "A" if energy_a < energy_b else "B"
                     therm_diff = abs(energy_a - energy_b)
-
                     # 2. Aromaticity Score
                     aroma_a = (props_a.get("aromatic_rings", 0) * 10) + (
                         props_a.get("aromatic_atoms", 0) * 5
@@ -1334,7 +1316,6 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                         if aroma_b > aroma_a
                         else "Equal"
                     )
-
                     # 3. Structural Stability (ring strain, rigidity)
                     struct_score_a = (
                         10
@@ -1353,7 +1334,6 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                         if struct_score_b > struct_score_a
                         else "Equal"
                     )
-
                     # 4. Electronic Stability (charge neutrality)
                     charged_a = props_a.get("is_charged", False)
                     charged_b = props_b.get("is_charged", False)
@@ -1361,14 +1341,12 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                         elec_winner = "A" if not charged_a else "B"
                     else:
                         elec_winner = "Equal"
-
                     # 5. Kinetic Stability (fewer rotatable bonds = more stable conformation)
                     rot_a = props_a.get("num_rotatable_bonds", 0)
                     rot_b = props_b.get("num_rotatable_bonds", 0)
                     kin_winner = (
                         "A" if rot_a < rot_b else "B" if rot_b < rot_a else "Equal"
                     )
-
                     # Display comparison table
                     stability_data = [
                         (
@@ -1407,7 +1385,6 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                             kin_winner,
                         ),
                     ]
-
                     # Display each category
                     for item in stability_data:
                         category, val_a, val_b, note, winner = item
@@ -1425,164 +1402,251 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                                 )
                             else:
                                 st.info("⚪ Equal")
-
-                    # Hierarchical Verdict (Priority Order)
+                    # ========== OVERALL HIERARCHICAL STABILITY COMPARISON ==========
                     st.markdown("---")
-                    st.subheader("⚖️ Hierarchical Verdict (Priority Order)")
+                    st.subheader("⚖️ Overall Hierarchical Stability Comparison")
+                    st.markdown("""
+                    The following 6-step hierarchical framework determines molecular stability.
+                     Steps are evaluated in order; the first decisive step determines the winner.
+                    """)
+                    # Re-evaluate structural results to ensure we have them
+                    if props_a and props_b:
+                        hierarchical_results = compare_structural_factors(props_a, props_b)
+                        # Display each step with calculation details
+                        step_order = [
+                             ("step1_aromaticity", "Step 1: Aromaticity"),
+                             ("step2_carbon_framework", "Step 2: Carbon Framework"),
+                             ("step3_ring_strain", "Step 3: Ring Strain"),
+                             ("step4_resonance", "Step 4: Resonance/Delocalization"),
+                             ("step5_steric", "Step 5: Steric Hindrance"),
+                             ("step6_inductive", "Step 6: Inductive Effects"),
+                        ]
+                        final_winner = None
+                        winning_step = None
+                        conclusion_text = None
+                        for step_key, step_title in step_order:
+                            step_data = hierarchical_results[step_key]
+                            step_num = step_title.split(":")[0].split(" ")[1]
+                            # Create expander - expanded only if this is the winning step
+                            is_winning_step = (step_data["winner"] is not None and
+                                               step_data["winner"] != "Equal" and
+                                               winning_step is None)
+                            expanded_state = is_winning_step
+                            with st.expander(f"{step_title}", expanded=expanded_state):
+                                if step_data["comparisons"]:
+                                    for comp in step_data["comparisons"]:
+                                        winner_icon = "🔵" if comp["winner"] == "A" else "🔴"
+                                        st.markdown(
+                                            f"**{comp['factor']}:** {winner_icon} Molecule {comp['winner']}  \n"
+                                            f"Values → A: `{comp['a_val']}` | B: `{comp['b_val']}`"
+                                        )
+                                        st.caption(f"_{comp['reason']}_")
+                                # Show advantage/stability note
+                                if step_data.get("stability_advantage"):
+                                    st.info(f"📌 {step_data['stability_advantage']}")
+                                # If this step had a decisive winner, mark it
+                                if step_data["winner"] and step_data["winner"] != "Equal" and winning_step is None:
+                                    final_winner = step_data["winner"]
+                                    winning_step = step_num
+                                    conclusion_text = step_data.get("conclusion", "")
+                                    st.success(f"✅ **Step {step_num} decides: Molecule {step_data['winner']} wins!**")
+                                elif step_data["winner"] == "Equal":
+                                    st.info("⚪ Step tied – proceeding to next step…")
+                                else:
+                                    # This shouldn't happen but handle gracefully
+                                    pass
+                        # Final summary box - BASED ON 6-STEP FRAMEWORK
+                        st.markdown("---")
+                        st.markdown("### 🎯 Final Stability Verdict")
 
-                    # Follow exact priority: Aromaticity → Resonance → Substitution → Ring Strain → Sterics → Inductive
-                    verdict_steps = []
+                        # Determine winner from 6-step framework
+                        if final_winner and final_winner != "Equal":
+                            winner_icon = "🔵" if final_winner == "A" else "🔴"
+                            st.success(f"{winner_icon} **Molecule {final_winner} is more stable!**")
+                            st.markdown(f"**Decided at Step {winning_step}:** {conclusion_text}")
 
-                    # Step 1: Aromaticity (ULTIMATE)
-                    # Use enhanced aromatic score that includes aromatic coverage and reactive groups
-                    aromatic_score_a = props_a.get("aromatic_score", aroma_a * 10)
-                    aromatic_score_b = props_b.get("aromatic_score", aroma_b * 10)
-                    reactivity_a = props_a.get("reactivity_penalty", 0)
-                    reactivity_b = props_b.get("reactivity_penalty", 0)
-                    aromatic_coverage_a = props_a.get("aromatic_coverage", 0)
-                    aromatic_coverage_b = props_b.get("aromatic_coverage", 0)
-
-                    # Net aromatic stability = aromatic score - reactivity penalty
-                    net_aroma_a = aromatic_score_a - reactivity_a
-                    net_aroma_b = aromatic_score_b - reactivity_b
-
-                    if net_aroma_a != net_aroma_b:
-                        winner = "A" if net_aroma_a > net_aroma_b else "B"
-                        verdict_steps.append(
-                            (
-                                1,
-                                "Aromaticity + Reactivity",
-                                winner,
-                                f"Net: {net_aroma_a:.0f} vs {net_aroma_b:.0f} (Aromatic:{aromatic_score_a} vs {aromatic_score_b} - Reactivity:{reactivity_a} vs {reactivity_b})",
-                            )
-                        )
-                        hierarchy_winner = winner
-                        arom_a = props_a.get("aromatic_atoms", 0)
-                        arom_b = props_b.get("aromatic_atoms", 0)
-                        hierarchy_reason = f"Aromatic stabilization with reactivity penalty: aromatic atoms={arom_a} vs {arom_b}, reactive groups={reactivity_a} vs {reactivity_b}"
-
-                    # Step 2: Resonance (only if Step 1 equal)
-                    if len(verdict_steps) == 0:
-                        conj_a = props_a.get("conjugated_bonds", 0)
-                        conj_b = props_b.get("conjugated_bonds", 0)
-                        if conj_a != conj_b:
-                            winner = "A" if conj_a > conj_b else "B"
-                            verdict_steps.append(
-                                (2, "Resonance", winner, "More resonance structures")
-                            )
-                            hierarchy_winner = winner
-                            hierarchy_reason = "Resonance/delocalization stability"
-
-                    # Step 3: Substitution (only if Step 1-2 equal)
-                    if len(verdict_steps) == 0:
-                        # Count substituted carbons (tertiary + quaternary)
-                        sub_a = props_a.get("tertiary_carbons", 0) + props_a.get(
-                            "quaternary_carbons", 0
-                        )
-                        sub_b = props_b.get("tertiary_carbons", 0) + props_b.get(
-                            "quaternary_carbons", 0
-                        )
-                        if sub_a != sub_b:
-                            winner = "A" if sub_a > sub_b else "B"
-                            verdict_steps.append(
-                                (3, "Substitution", winner, "More substituted carbons")
-                            )
-                            hierarchy_winner = winner
-                            hierarchy_reason = "Hyperconjugation stabilization"
-
-                    # Step 4: Ring Strain (only if Steps 1-3 equal)
-                    if len(verdict_steps) == 0:
-                        strain_a = props_a.get("ring_strain", 0)
-                        strain_b = props_b.get("ring_strain", 0)
-                        if strain_a != strain_b:
-                            winner = "A" if strain_a < strain_b else "B"
-                            verdict_steps.append(
-                                (4, "Ring Strain", winner, "6-membered > 5 > 7 > 4 > 3")
-                            )
-                            hierarchy_winner = winner
-                            hierarchy_reason = f"Lower ring strain ({min(strain_a, strain_b):.1f} vs {max(strain_a, strain_b):.1f} kcal/mol)"
-
-                    # Step 5: Steric Hindrance (only if Steps 1-4 equal)
-                    if len(verdict_steps) == 0:
-                        rot_a = props_a.get("num_rotatable_bonds", 0)
-                        rot_b = props_b.get("num_rotatable_bonds", 0)
-                        if rot_a != rot_b:
-                            winner = "A" if rot_a < rot_b else "B"
-                            verdict_steps.append(
-                                (5, "Steric Hindrance", winner, "Less crowding")
-                            )
-                            hierarchy_winner = winner
-                            hierarchy_reason = (
-                                "Lower steric hindrance (fewer rotatable bonds)"
-                            )
-
-                    # Step 6: Inductive Effects (tie-breaker)
-                    if len(verdict_steps) == 0:
-                        charged_a = props_a.get("is_charged", False)
-                        charged_b = props_b.get("is_charged", False)
-                        if charged_a != charged_b:
-                            winner = "A" if not charged_a else "B"
-                            verdict_steps.append(
-                                (6, "Inductive Effects", winner, "Neutral > Charged")
-                            )
-                            hierarchy_winner = winner
-                            hierarchy_reason = "Charge stability (neutral more stable)"
-                        else:
-                            tpsa_a = props_a.get("tpsa", 0)
-                            tpsa_b = props_b.get("tpsa", 0)
-                            if tpsa_a != tpsa_b:
-                                winner = "A" if tpsa_a < tpsa_b else "B"
-                                verdict_steps.append(
-                                    (6, "Inductive Effects", winner, "Lower PSA")
-                                )
-                                hierarchy_winner = winner
-                                hierarchy_reason = "Lower polar surface area"
+                            # Additional thermodynamic context
+                            thermo_note = ""
+                            if energy_per_atom_a < energy_per_atom_b:
+                                thermo_note = f"Thermodynamic analysis confirms: Molecule A has lower energy ({energy_per_atom_a:.3f} vs {energy_per_atom_b:.3f} kcal/mol per atom)"
                             else:
-                                verdict_steps.append(
-                                    (6, "Inductive Effects", "Equal", "No difference")
-                                )
-                                hierarchy_winner = "Equal"
-                                hierarchy_reason = "All factors equal"
+                                thermo_note = f"Thermodynamic analysis confirms: Molecule B has lower energy ({energy_per_atom_b:.3f} vs {energy_per_atom_a:.3f} kcal/mol per atom)"
 
-                    # Display hierarchical verdict
-                    for step_num, factor_name, winner_val, rule in verdict_steps:
-                        if winner_val != "Equal":
-                            icon = "🔵" if winner_val == "A" else "🔴"
-                            st.markdown(f"""
-                            **Step {step_num}: {factor_name}**
-                            - Winner: {icon} **Molecule {winner_val}**
-                            - Rule: {rule}
-                            - Reason: {hierarchy_reason}
-                            """)
+                            st.info(f"💡 **Thermodynamic Confirmation:** {thermo_note}")
+
                         else:
-                            st.info(f"**Step {step_num}: {factor_name}** - Both equal")
-
-                    if verdict_steps:
-                        final_winner = (
-                            hierarchy_winner if "hierarchy_winner" in dir() else "Equal"
+                            # No structural winner found - use thermodynamic analysis
+                            if energy_per_atom_a < energy_per_atom_b:
+                                st.success("🔵 **Molecule A is more stable** (thermodynamic analysis)")
+                                st.info("💡 **Reason:** Lower energy after force field optimization")
+                            elif energy_per_atom_b < energy_per_atom_a:
+                                st.success("🔴 **Molecule B is more stable** (thermodynamic analysis)")
+                                st.info("💡 **Reason:** Lower energy after force field optimization")
+                            else:
+                                st.info("⚪ **Both molecules have equivalent stability** (no structural or thermodynamic differences found)")
+                    # Alternative Hierarchical Comparison: Kinetic & Electronic Focus
+            st.markdown("---")
+            st.subheader("⚖️ Alternative Hierarchical Comparison (Kinetic/Electronic Focus)")
+        
+            alt_verdict_steps = []
+        
+            # Step 1 Hydrogen Bonding Capacity (important for solubility, binding)
+            hbd_a = props_a.get("h_donors", 0)
+            hba_a = props_a.get("h_acceptors", 0)
+            hbd_b = props_b.get("h_donors", 0)
+            hba_b = props_b.get("h_acceptors", 0)
+            hb_total_a = hbd_a + hba_a
+            hb_total_b = hbd_b + hba_b
+            
+            if hb_total_a != hb_total_b:
+                winner = "A" if hb_total_a > hb_total_b else "B"
+                alt_verdict_steps.append(
+                    (
+                        1,
+                        "Hydrogen Bonding Capacity",
+                        winner,
+                        "More H-bond donors/acceptors = better solubility & binding"
+                    )
+                )
+                alt_hierarchy_winner = winner
+                alt_hierarchy_reason = f"H-bond capacity: {hb_total_a} vs {hb_total_b} (Donors: {hbd_a}+{hba_a} vs {hbd_b}+{hba_b})"
+            
+            # Step 2: Electronic Polararity (dipole moment approximation)
+            if len(alt_verdict_steps) == 0:
+                # Use heteroatom ratio and TPSA as proxy for polarity
+                hetero_ratio_a = props_a.get("heteroatom_ratio", 0)
+                hetero_ratio_b = props_b.get("heteroatom_ratio", 0)
+                tpsa_a = props_a.get("tpsa", 0)
+                tpsa_b = props_b.get("tpsa", 0)
+                polarity_score_a = hetero_ratio_a * 100 + tpsa_a * 0.1  # Simple proxy
+                polarity_score_b = hetero_ratio_b * 100 + tpsa_b * 0.1
+                
+                if abs(polarity_score_a - polarity_score_b) > 0.1:  # Threshold for significance
+                    winner = "A" if polarity_score_a > polarity_score_b else "B"
+                    alt_verdict_steps.append(
+                        (
+                            2,
+                            "Electronic Polararity",
+                            winner,
+                            "Higher polarity = better solvation in polar solvents"
                         )
-                        st.success(
-                            f"🎯 **Overall: Molecule {final_winner} is more stable**"
+                    )
+                    alt_hierarchy_winner = winner
+                    alt_hierarchy_reason = f"Polarity score: {polarity_score_a:.1f} vs {polarity_score_b:.1f} (Hetero:{hetero_ratio_a:.2%} vs {hetero_ratio_b:.2%}, TPSA:{tpsa_a:.1f} vs {tpsa_b:.1f})"
+            
+            # Step 3: Molecular Flexibility (entropic contribution to stability)
+            if len(alt_verdict_steps) == 0:
+                flex_a = props_a.get("num_rotatable_bonds", 0)
+                flex_b = props_b.get("num_rotatable_bonds", 0)
+                # More flexible = higher entropy = less stable at low T, but we'll consider moderate flexibility good
+                if flex_a != flex_b:
+                    # For room temperature stability, moderate flexibility is often good
+                    # But very high flexibility can decrease stability
+                    winner = "A" if flex_a < flex_b else "B"  # Prefer less flexible (more rigid) for stability
+                    alt_verdict_steps.append(
+                        (
+                            3,
+                            "Molecular Flexibility",
+                            winner,
+                            "Fewer rotatable bonds = more rigid = entropically favored"
                         )
-
+                    )
+                    alt_hierarchy_winner = winner
+                    alt_hierarchy_reason = f"Rotatable bonds: {flex_a} vs {flex_b}"
+            
+            # Step 4: Steric Accessibility (for reactions/bindings)
+            if len(alt_verdict_steps) == 0:
+                steric_a = props_a.get("tertiary_carbons", 0) + props_a.get("quaternary_carbons", 0)
+                steric_b = props_b.get("tertiary_carbons", 0) + props_b.get("quaternary_carbons", 0)
+                if steric_a != steric_b:
+                    winner = "A" if steric_a < steric_b else "B"  # Less steric crowding = more accessible
+                    alt_verdict_steps.append(
+                        (
+                            4,
+                            "Steric Accessibility",
+                            winner,
+                            "Less steric crowding = better for reactions/bindings"
+                        )
+                    )
+                    alt_hierarchy_winner = winner
+                    alt_hierarchy_reason = f"Steric crowding (TQ): {steric_a} vs {steric_b}"
+            
+            # Step 5: Aromatic Heteroatom Content (extra stabilization)
+            if len(alt_verdict_steps) == 0:
+                het_aro_a = props_a.get("aromatic_heteroatoms", 0)
+                het_aro_b = props_b.get("aromatic_heteroatoms", 0)
+                if het_aro_a != het_aro_b:
+                    winner = "A" if het_aro_a > het_aro_b else "B"
+                    alt_verdict_steps.append(
+                        (
+                            5,
+                            "Aromatic Heteroatom Content",
+                            winner,
+                            "Heteroatoms in aromatic rings = extra stabilization"
+                        )
+                    )
+                    alt_hierarchy_winner = winner
+                    alt_hierarchy_reason = f"Aromatic heteroatoms: {het_aro_a} vs {het_aro_b}"
+            
+            # Step 6: Molecular Weight/Size (tie-breaker)
+            if len(alt_verdict_steps) == 0:
+                mw_a = Descriptors.MolWt(mol_a) if mol_a else 0
+                mw_b = Descriptors.MolWt(mol_b) if mol_b else 0
+                if abs(mw_a - mw_b) > 0.1:
+                    winner = "A" if mw_a < mw_b else "B"  # Prefer lighter molecule (often better diffusion)
+                    alt_verdict_steps.append(
+                        (
+                            6,
+                            "Molecular Weight",
+                            winner,
+                            "Lower molecular weight = better diffusion/permeability"
+                        )
+                    )
+                    alt_hierarchy_winner = winner
+                    alt_hierarchy_reason = f"Molecular weight: {mw_a:.1f} vs {mw_b:.1f} g/mol"
                 else:
-                    st.info("No significant structural differences found.")
+                    alt_verdict_steps.append(
+                        (6, "Molecular Weight", "Equal", "Same molecular weight")
+                    )
+                    alt_hierarchy_winner = "Equal"
+                    alt_hierarchy_reason = "Same molecular weight"
+            
+            # Display alternative hierarchical verdict
+            for step_num, factor_name, winner_val, rule in alt_verdict_steps:
+                if winner_val != "Equal":
+                    icon = "🔵" if winner_val == "A" else "🔴"
+                    st.markdown(f"""
+                    **Step {step_num}: {factor_name}**
+                    - Winner: {icon} **Molecule {winner_val}**
+                    - Rule: {rule}
+                    - Reason: {alt_hierarchy_reason}
+                    """)
+                else:
+                    st.info(f"**Step {step_num}: {factor_name}** - Both equal")
 
-                # Detailed structural comparison table with Pandas DataFrame
+            if alt_verdict_steps:
+                final_winner = (
+                    alt_hierarchy_winner if "alt_hierarchy_winner" in dir() else "Equal"
+                )
+                if final_winner != "Equal":
+                    st.success(
+                        f"🎯 **Alternative Verdict: Molecule {final_winner} is more favorable**"
+                    )
+                else:
+                    st.info("⚪ Both molecules are equivalent in this analysis")
+               # Detailed structural comparison table with Pandas DataFrame
                 if props_a and props_b:
                     st.markdown("---")
                     st.subheader("📋 Detailed Structural Properties")
-
                     try:
                         import pandas as pd
-
                         # Build structured table data as lists
                         properties = [
-                            "Atoms",
-                            "Carbons",
-                            "Hydrogens",
-                            "SP³ Carbons",
-                            "SP² Carbons",
+                           "Atoms",
+                           "Carbons",
+                           "Hydrogens",
+                           "SP³ Carbons",
+                           "SP² Carbons",
                             "Rings",
                             "Ring Strain",
                             "Aromatic Rings",
@@ -1862,7 +1926,7 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                         )
                         st.markdown("|---|---|---|---|---|")
 
-                # 3D Visualization
+                 # 3D Visualization
                 st.markdown("---")
                 st.subheader("🫁 3D Optimized Structures")
 
