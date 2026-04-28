@@ -1752,9 +1752,9 @@ if st.button("🔬 Optimize & Compare", type="primary", use_container_width=True
                             elif i == 3:  # SP³ - higher is better
                                 a_val = props_a["sp3_fraction"]
                                 b_val = props_b["sp3_fraction"]
-                                if a_val < b_val:
+                                if a_val > b_val:
                                     return "A"
-                                elif b_val < a_val:
+                                elif b_val > a_val:
                                     return "B"
                                 return "═"
                             elif i == 4:  # SP² - context dependent
