@@ -667,7 +667,7 @@ def compare_structural_factors(props_a, props_b):
 
     # If both have rings or both acyclic, check SP³
     if sp3_a != sp3_b:
-        winner = "A" if sp3_a > sp3_b else "B"
+        winner = "A" if sp3_a < sp3_b else "B"
         results["step2_carbon_framework"]["comparisons"].append(
             {
                 "factor": "SP³ Carbon Character",
